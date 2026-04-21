@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Model artifacts
+checkpoints/
+*.pth
+*.pt
+
+# Videos / logs
+videos/
+runs/
+*.mp4
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
