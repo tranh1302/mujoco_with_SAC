@@ -1,5 +1,6 @@
 import torch
 import gymnasium as gym
+import time
 
 from config import env_id, model_path
 from model import Actor
@@ -17,10 +18,11 @@ total = 0.0
 done = False
 while not done:
     with torch.no_grad():
-        a, _ = actor.sample(torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0))
-    obs, r, term, trunc, _ = env.step(a.squeeze(0).cpu().numpy())
-    total += r
-    done = term or trunc
+        action, _ = actor.sample(torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0))
+    obs, reward, terminated, truncated, _ = env.step(action.squeeze(0).cpu().numpy())
+    total += reward
+    done = terminated or truncated
+    time.sleep(0.05)
 
 print(f'episode return: {total:.1f}')
 env.close()
