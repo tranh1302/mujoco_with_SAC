@@ -11,7 +11,7 @@ from model import Critic, Actor
 from make_env import envs
 
 device = torch.device(
-    'cpu' if torch.cuda.is_available() else 'cuda'
+    'cuda' if torch.cuda.is_available() else 'cpu'
 )
 
 def np2torch(a):
