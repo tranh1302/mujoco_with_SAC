@@ -1,4 +1,0 @@
-torch
-numpy
-gymnasium[mujoco]
-stable-baselines3
