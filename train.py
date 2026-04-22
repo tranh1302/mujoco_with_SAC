@@ -5,6 +5,7 @@ import gymnasium as gym
 from stable_baselines3.common.buffers import ReplayBuffer
 import time
 import os
+import matplotlib.pyplot as plt
 
 from config import resume, checkpoint_dir, checkpoint_interval, model_path, total_timesteps, learning_rate, buffer_size, gamma, tau, policy_update_period, batch_size, num_step_before_training
 from model import Critic, Actor
@@ -135,4 +136,14 @@ torch.save(actor.state_dict(), model_path)
 
 print('total time: ', (time.time() - start_time)/60)
 
+def smooth(x, a = 0.1):
+  y = [x[0]]
+  for xi in  x[1:]:
+    yi = a*xi + (1-a)*y[-1]
+    y.append(yi)
+  return y
 
+plt.plot(episode_returns, alpha = 0.2)
+plt.plot(smooth(episode_returns))
+plt.legend()
+plt.show()

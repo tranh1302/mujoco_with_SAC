@@ -2,6 +2,14 @@
 
 Soft Actor-Critic (SAC) implementation for continuous control tasks in MuJoCo environments via Gymnasium.
 
+## Results
+
+Training on `HalfCheetah-v5` reaches ~8000 episode return after ~300 episodes.
+
+![Training curve](Figure.png)
+
+*X-axis: episode index. Y-axis: episode return. Light line = raw returns, orange = EMA smoothed.*
+
 ## Features
 
 - Twin Q-networks with target networks (soft Polyak updates)
