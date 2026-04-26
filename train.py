@@ -56,7 +56,7 @@ if resume and os.path.exists(checkpoint_dir):
     start_step, best_return = c['step'] + 1, c['best']
     print(f'resumed @ {start_step}, best={best_return:.1f}')
 
-for global_step in range(total_timesteps):
+for global_step in range(start_step, total_timesteps):
     if global_step < num_step_before_training:
         actions = np.array([envs.single_action_space.sample() for i in range(envs.num_envs)])
     else:
