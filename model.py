@@ -12,8 +12,8 @@ class Critic(nn.Module):
         obs_dim = int(np.prod(env.single_observation_space.shape))
         act_dim = int(np.prod(env.single_action_space.shape))
         self.network = nn.Sequential(
-            nn.Linear(obs_dim + act_dim, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
+            nn.Linear(obs_dim + act_dim, 512), nn.LayerNorm(512), nn.ReLU(),
+            nn.Linear(512, 256), nn.LayerNorm(256), nn.ReLU(),
             nn.Linear(256, 1),
         )
 
@@ -27,8 +27,8 @@ class Actor(nn.Module):
         obs_dim = int(np.prod(env.single_observation_space.shape))
         action_dim = int(np.prod(env.single_action_space.shape))
         self.network = nn.Sequential(
-            nn.Linear(obs_dim, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
+            nn.Linear(obs_dim, 512), nn.ReLU(),
+            nn.Linear(512, 256), nn.ReLU(),
         )
         self.mean_head = nn.Linear(256, action_dim)
         self.log_std_head = nn.Linear(256, action_dim)
@@ -52,7 +52,6 @@ class Actor(nn.Module):
         y = torch.tanh(u)
         action = self.scale * y + self.bias
 
-        # stable: log(1 - tanh(u)^2) = 2*(log(2) - u - softplus(-2u))
         log_prob = normal.log_prob(u) - 2 * (np.log(2) - u - nn.functional.softplus(-2 * u))
         log_prob = log_prob.sum(dim=-1, keepdim=True) - torch.log(self.scale).sum()
         return action, log_prob
