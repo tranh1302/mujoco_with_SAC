@@ -28,7 +28,6 @@ Training on `Humanoid-v5` for ~1800 episodes.
 
 ```
 torch
-numpy
 gymnasium[mujoco]
 stable-baselines3
 ```
