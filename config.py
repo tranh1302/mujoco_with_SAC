@@ -1,8 +1,8 @@
-env_id = 'HalfCheetah-v5'
+env_id = 'Humanoid-v5'
 
 num_envs = 1
 
-total_timesteps = 300_000
+total_timesteps = 1_500_000
 
 learning_rate = 3e-4
 
@@ -20,8 +20,12 @@ num_step_before_training = 25_000
 
 model_path = 'SAC.pth'
 
+best_model_path = 'SAC_best.path'
+
 checkpoint_dir = 'checkpoints'
 
-checkpoint_interval = 50_000
+checkpoint_path = 'checkpoints/checkpoint.pth'
 
-resume = False
+checkpoint_interval = 10_000
+
+resume = True
