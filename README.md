@@ -4,11 +4,17 @@ Soft Actor-Critic (SAC) implementation for continuous control tasks in MuJoCo en
 
 ## Results
 
-Training on `HalfCheetah-v5` reaches ~8000 episode return after ~300 episodes.
+Training on `Humanoid-v5` for ~1800 episodes.
 
 ![Training curve](Figure.png)
 
-*X-axis: episode index. Y-axis: episode return. Light line = raw returns, orange = EMA smoothed.*
+*X-axis: episode index. Y-axis: episode return. Light blue = raw returns per episode, orange = EMA smoothed.*
+
+| Metric | Value |
+|--------|-------|
+| Best episode return | ~6300 |
+| Smoothed return at end | ~5500 |
+| Episodes trained | ~1800 |
 
 ## Features
 
@@ -59,8 +65,8 @@ Edit `config.py`:
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `env_id` | `HalfCheetah-v5` | Any continuous-action Gymnasium env |
-| `total_timesteps` | `500_000_000` | Total env steps |
+| `env_id` | `Humanoid-v5` | Any continuous-action Gymnasium env |
+| `total_timesteps` | `1_500_000` | Total env steps |
 | `learning_rate` | `3e-4` | Shared by actor/critic/alpha |
 | `buffer_size` | `1_000_000` | Replay buffer capacity |
 | `gamma` | `0.99` | Discount factor |
