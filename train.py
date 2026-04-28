@@ -1,22 +1,19 @@
 import torch
 from torch import nn
 import numpy as np
-import gymnasium as gym
 from stable_baselines3.common.buffers import ReplayBuffer
 import time
 import os
 import matplotlib.pyplot as plt
 
-from config import resume, checkpoint_dir, checkpoint_interval, model_path, total_timesteps, learning_rate, buffer_size, gamma, tau, policy_update_period, batch_size, num_step_before_training
+from config import resume, checkpoint_dir, checkpoint_interval, model_path, best_model_path, total_timesteps, learning_rate, buffer_size, gamma, tau, policy_update_period, batch_size, num_step_before_training
 from model import Critic, Actor
 from make_env import envs
 
-device = torch.device(
-    'cuda' if torch.cuda.is_available() else 'cpu'
-)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def np2torch(a):
-  return torch.as_tensor(a, dtype=torch.float32, device=device)
+    return torch.as_tensor(a, dtype=torch.float32, device=device)
 
 target_entropy = -float(np.prod(envs.single_action_space.shape))
 log_alpha = torch.zeros(1, device=device, requires_grad=True)
@@ -41,7 +38,9 @@ rb = ReplayBuffer(
     buffer_size = buffer_size,
     observation_space = envs.single_observation_space,
     action_space = envs.single_action_space,
-    device = device
+    device = device,
+    optimize_memory_usage=True,
+    handle_timeout_termination=False 
 )
 
 start_time = time.time()
@@ -49,7 +48,7 @@ episode_returns = []
 obs, _ = envs.reset()
 start_step, best_return = 0, -float('inf')
 if resume and os.path.exists(checkpoint_dir):
-    c = torch.load(checkpoint_dir, map_location=device)
+    c = torch.load(checkpoint_dir, map_location=device, weights_only = False)
     actor.load_state_dict(c['actor']); q_network1.load_state_dict(c['q1']); q_network2.load_state_dict(c['q2'])
     q_target1.load_state_dict(c['q1_t']); q_target2.load_state_dict(c['q2_t'])
     log_alpha.data.copy_(c['log_alpha'])
@@ -68,8 +67,16 @@ for global_step in range(start_step, total_timesteps):
 
     if 'final_info' in infos:
         ret = infos['final_info']['episode']['r'][0]
-        print(f'global_step = {global_step}, episode return: {ret}')
+        len_ep = infos['final_info']['episode']['l'][0]
+        print(f'global_step = {global_step}, episode_return: {ret}, len_ep: {len_ep}')
         episode_returns.append(ret)
+
+        if len(episode_returns) >= 20:
+            recent_avg = np.mean(episode_returns[-20:])
+            if recent_avg > best_return:
+                best_return = recent_avg
+                torch.save(actor.state_dict(), best_model_path)
+                print(f'NEW BEST: avg20 = {recent_avg:.1f}')
 
     real_next_obs = next_obs.copy()
     for i, done in enumerate(truncateds):
@@ -82,35 +89,41 @@ for global_step in range(start_step, total_timesteps):
     if global_step > num_step_before_training:
         data = rb.sample(batch_size)
         alpha = log_alpha.exp().detach()
+        obs_t = data.observations.float()
+        next_obs_t = data.next_observations.float()
+        actions_t = data.actions.float()
 
         with torch.no_grad():
-            action_next, log_prob_next = actor.sample(np2torch(data.next_observations))
-            q_next_values1 = q_target1(np2torch(data.next_observations), action_next)
-            q_next_values2 = q_target2(np2torch(data.next_observations), action_next)
+            action_next, log_prob_next = actor.sample(next_obs_t)
+            q_next_values1 = q_target1(next_obs_t, action_next)
+            q_next_values2 = q_target2(next_obs_t, action_next)
             td_target = data.rewards.flatten() + gamma * (torch.min(q_next_values1, q_next_values2).view(-1) - alpha * log_prob_next.view(-1)) * (1 - data.dones.flatten())
-        
-        q1_pred = q_network1(np2torch(data.observations), np2torch(data.actions))
+
+        q1_pred = q_network1(obs_t, actions_t)
         loss_q1 = nn.functional.mse_loss(td_target.squeeze(), q1_pred.squeeze())
 
         q1_optimizer.zero_grad()
         loss_q1.backward()
+        torch.nn.utils.clip_grad_norm_(q_network1.parameters(), max_norm=10.0)
         q1_optimizer.step()
 
-        q2_pred = q_network2(np2torch(data.observations), np2torch(data.actions))
+        q2_pred = q_network2(obs_t, actions_t)
         loss_q2 = nn.functional.mse_loss(td_target.squeeze(), q2_pred.squeeze())
 
         q2_optimizer.zero_grad()
         loss_q2.backward()
+        torch.nn.utils.clip_grad_norm_(q_network2.parameters(), max_norm=10.0)
         q2_optimizer.step()
 
         if global_step % policy_update_period == 0:
-            action_new, log_prob_new = actor.sample(np2torch(data.observations))
-            q1_ = q_network1(np2torch(data.observations), action_new)
-            q2_ = q_network2(np2torch(data.observations), action_new)
+            action_new, log_prob_new = actor.sample(obs_t)
+            q1_ = q_network1(obs_t, action_new)
+            q2_ = q_network2(obs_t, action_new)
             actor_loss = -(torch.min(q1_, q2_) - alpha * log_prob_new).mean()
             
             actor_optimizer.zero_grad()
             actor_loss.backward()
+            torch.nn.utils.clip_grad_norm_(actor.parameters(), max_norm=5.0)
             actor_optimizer.step()
 
             alpha_loss = -(log_alpha * (log_prob_new.detach() + target_entropy)).mean()
@@ -123,9 +136,6 @@ for global_step in range(start_step, total_timesteps):
             for param, target_param in zip(q_network2.parameters(), q_target2.parameters()):
                 target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
-    if global_step % 100 == 0:
-        print(f'steps per second: {int(global_step/(time.time() - start_time))}')
-    
     if global_step % checkpoint_interval == 0:
         torch.save({'actor': actor.state_dict(), 'q1': q_network1.state_dict(), 'q2': q_network2.state_dict(),
                     'q1_t': q_target1.state_dict(), 'q2_t': q_target2.state_dict(),
@@ -145,5 +155,6 @@ def smooth(x, a = 0.1):
 
 plt.plot(episode_returns, alpha = 0.2)
 plt.plot(smooth(episode_returns))
-plt.legend()
+
+plt.savefig('Figure.png')
 plt.show()
